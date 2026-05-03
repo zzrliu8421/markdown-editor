@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Markdown 编辑器</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght=400;500&display="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg-primary: #1e1e2e;
+      --bg-editor: #181825;
+      --bg-preview: #1e1e2e;
+      --accent-primary: #cba6f7;
+      --accent-secondary: #89b4fa;
+      --text-primary: #cdd6f4;
+      --text-secondary: #a6adc8;
+      --border: #313244;
+      --button-hover: #45475a;
+    }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    header {
+      height: 60px;
+      background: var(--bg-editor);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+    }
+    .logo {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--accent-primary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .header-actions { display: flex; gap: 10px; }
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-primary { background: var(--accent-primary); color: #1e1e2e; }
+    .btn-primary:hover { background: #ddb8f7; }
+    .btn-secondary { background: var(--button-hover); color: var(--text-primary); }
+    .btn-secondary:hover { background: #585b70; }
+    
+    .toolbar {
+      background: var(--bg-editor);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 12px 12px;
+      gap: 4px;
+      overflow-x: auto;
+      flex-wrap: wrap;
+      min-height: 60px;
+    }
+    
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0 8px;
+      border-right: 1px solid var(--border);
+    }
+    .toolbar-group:last-child { border-right: none; }
+    
+    .toolbar-btn {
+      padding: 6px 10px;
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 13px;
+      white-space: nowrap;
+      transition: all 0.2s;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      min-width: 32px;
+      height: 32px;
+      position: relative;
+    }
+    .toolbar-btn:hover {
+      background: var(--button-hover);
+      color: var(--text-primary);
+    }
+    .toolbar-btn[data-tooltip]:hover::after {
+      content: attr(data-tooltip);
+      position: fixed;
+      top: calc(var(--tooltip-top, 0px) + 8px);
+      left: var(--tooltip-left);
+      transform: translateX(-50%);
+      background: var(--bg-editor);
+      border: 1px solid var(--border);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      white-space: nowrap;
+      z-index: 10000;
+      color: var(--text-primary);
+      pointer-events: none;
+    }
+    .toolbar-btn svg { width: 16px; height: 16px; }
+    
+    .main-container { flex: 1; display: flex; overflow: hidden; }
+    .editor-panel { width: 50%; display: flex; flex-direction: column; border-right: 2px solid var(--border); }
+    .editor {
+      flex: 1;
+      width: 100%;
+      padding: 16px;
+      background: var(--bg-editor);
+      color: var(--text-primary);
+      border: none;
+      resize: none;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      line-height: 1.6;
+      outline: none;
+    }
+    .editor::placeholder { color: var(--text-secondary); content: "开始编写Markdown..."; }
+    .preview-panel { width: 50%; display: flex; flex-direction: column; }
+    .preview-header {
+      height: 36px;
+      background: var(--bg-editor);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    .preview {
+      flex: 1;
+      padding: 16px 24px;
+      background: var(--bg-preview);
+      overflow-y: auto;
+      line-height: 1.7;
+    }
+    .preview h1 { font-size: 24px; margin: 20px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    .preview h2 { font-size: 20px; margin: 18px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+    .preview h3 { font-size: 18px; margin: 16px 0 8px; }
+    .preview h4, .preview h5, .preview h6 { font-size: 16px; margin: 14px 0 6px; }
+    .preview p { margin: 12px 0; }
+    .preview a { color: var(--accent-secondary); text-decoration: none; }
+    .preview a:hover { text-decoration: underline; }
+    .preview code {
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--button-hover);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .preview pre {
+      background: var(--bg-editor);
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    .preview pre code { background: transparent; padding: 0; }
+    .preview blockquote {
+      border-left: 4px solid var(--accent-primary);
+      padding-left: 16px;
+      margin: 12px 0;
+      color: var(--text-secondary);
+    }
+    .preview blockquote.admonition {
+      border-left: 4px solid var(--accent-primary);
+      background: var(--bg-editor);
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin: 12px 0;
+    }
+    .preview blockquote.admonition-note { border-left-color: #89b4fa; }
+    .preview blockquote.admonition-warning { border-left-color: #f9e2af; }
+    .preview blockquote.admonition-danger { border-left-color: #f38ba8; }
+    .preview blockquote.admonition-tip { border-left-color: #a6e3a1; }
+    .preview blockquote.admonition-tip .admonition-title { color: #a6e3a1; }
+    .preview blockquote.admonition-warning .admonition-title { color: #f9e2af; }
+    .preview blockquote.admonition-danger .admonition-title { color: #f38ba8; }
+    .preview blockquote.admonition-note .admonition-title { color: #89b4fa; }
+    .admonition-title {
+      font-weight: 600;
+      margin-bottom: 8px;
+      display: block;
+    }
+    .preview details {
+      background: var(--bg-editor);
+      border-radius: 8px;
+      margin: 12px 0;
+      overflow: hidden;
+    }
+    .preview summary {
+      padding: 12px 16px;
+      cursor: pointer;
+      background: var(--button-hover);
+    }
+    .preview details[open] summary {
+      border-bottom: 1px solid var(--border);
+    }
+    .previewdetails-content {
+      padding: 12px 16px;
+    }
+    
+    .preview ul, .preview ol { margin: 12px 0; padding-left: 24px; }
+    .preview li { margin: 6px 0; }
+    .preview hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+    .preview table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    .preview th, .preview td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
+    .preview th { background: var(--bg-editor); }
+    .preview img { max-width: 100%; border-radius: 8px; }
+    
+    .footer {
+      height: 40px;
+      background: var(--bg-editor);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .footer a {
+      color: var(--accent-secondary);
+      text-decoration: none;
+    }
+    .footer a:hover {
+      text-decoration: underline;
+    }
+    
+    .dropdown { position: relative; }
+    .dropdown-menu {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 4px;
+      background: var(--bg-editor);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      display: none;
+      z-index: 100;
+    }
+    .dropdown-menu.show { display: block; }
+    .dropdown-menu button {
+      display: block;
+      width: 100%;
+      padding: 10px 20px;
+      border: none;
+      background: transparent;
+      color: var(--text-primary);
+      text-align: left;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .dropdown-menu button:hover { background: var(--button-hover); }
+    .hidden-input { display: none; }
+    
+    .emoji-popup {
+      position: fixed;
+      background: var(--bg-editor);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      max-height: 300px;
+      overflow-y: auto;
+      z-index: 1000;
+      display: flex;
+      flex-wrap: wrap;
+      width: 320px;
+      gap: 4px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    .emoji-popup input {
+      width: 100%;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 14px;
+    }
+    .emoji-popup input:focus { border-color: var(--accent-primary); }
+    .emoji-btn {
+      background: transparent;
+      border: none;
+      font-size: 22px;
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 6px;
+      transition: background 0.2s;
+    }
+    #admonitionMenu button:hover { background: var(--button-hover); }
+    .emoji-btn:hover { background: var(--button-hover); }
+    
+    @media (max-width: 768px) {
+      .main-container { flex-direction: column; }
+      .editor-panel, .preview-panel { width: 100%; height: 50%; border-right: none; }
+      .editor-panel { border-bottom: 2px solid var(--border); }
+      .toolbar { padding: 6px 8px; }
+      .toolbar-group { padding: 0 4px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+      </svg>
+      <span>Markdown 编辑器</span>
+    </div>
+    <div class="header-actions">
+      <input type="file" id="fileInput" class="hidden-input" accept=".md,.txt">
+      <button class="btn btn-secondary" id="importBtn">导入</button>
+      <div class="dropdown">
+        <button class="btn btn-primary" id="exportBtn">导出</button>
+        <div class="dropdown-menu" id="dropdownMenu">
+          <button id="exportMd">导出为 .md</button>
+          <button id="exportHtml">导出为 .html</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="toolbar-group">
+      <button class="toolbar-btn" data-action="undo" data-tooltip="撤销 (Ctrl+Z)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 7v6h6"></path>
+          <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
+        </svg>
+      </button>
+      <button class="toolbar-btn" data-action="redo" data-tooltip="重做 (Ctrl+Y)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 7v6h-6"></path>
+          <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"></path>
+        </svg>
+      </button>
+    </div>
+    
+    <div class="toolbar-group">
+      <button class="toolbar-btn" data-action="bold" data-tooltip="粗体 **文本**">B</button>
+      <button class="toolbar-btn" data-action="italic" data-tooltip="斜体 *文本*">I</button>
+      <button class="toolbar-btn" data-action="strike" data-tooltip="删除线 ~~文本~~">S</button>
+    </div>
+    
+    <div class="toolbar-group">
+      <button class="toolbar-btn" data-action="h1" data-tooltip="一级标题 # 标题">H1</button>
+      <button class="toolbar-btn" data-action="h2" data-tooltip="二级标题 ## 标题">H2</button>
+      <button class="toolbar-btn" data-action="h3" data-tooltip="三级标题 ### 标题">H3</button>
+    </div>
+    
+    <div class="toolbar-group">
+      <button class="toolbar-btn" data-action="link" data-tooltip="链接 [文本](url)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+        </svg>
+      </button>
+      <button class="toolbar-btn" data-action="image" data-tooltip="图片 ![说明](url)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <circle cx="8.5" cy="8.5" r="1.5"></circle>
+          <polyline points="21 15 16 10 5 21"></polyline>
+        </svg>
+      </button>
+    </div>
+    
+    <div class="toolbar-group">
+      <button class="toolbar-btn" data-action="code" data-tooltip="行内代码 `代码`">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="16 18 22 12 16 6"></polyline>
+          <polyline points="8 6 2 12 8 18"></polyline>
+        </svg>
+      </button>
+      <button class="toolbar-btn" data-action="codeblock-fence" data-tooltip="代码块 ```代码```">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+          <polyline points="9 9 6 12 9 15"></polyline>
+          <polyline points="15 9 18 12 15 15"></polyline>
+        </svg>
+      </button>
+    </div>
+    
+    <div class="toolbar-group">
+      <button class="toolbar-btn" data-action="quote" data-tooltip="引用 > 文本">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V21z"></path>
+          <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"></path>
+        </svg>
+      </button>
+      <button class="toolbar-btn" id="admonitionBtn" data-tooltip="提示框集合">提示框</button>
+      <button class="toolbar-btn" data-action="details" data-tooltip="折叠内容 :::details[标题]">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="6 9 12 15 18 9"></polyline>
+          <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+        </svg>
+      </button>
+    </div>
+    
+    <div class="toolbar-group">
+      <button class="toolbar-btn" data-action="ul" data-tooltip="无序列表 - 项目">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="9" y1="6" x2="20" y2="6"></line>
+          <line x1="9" y1="12" x2="20" y2="12"></line>
+          <line x1="9" y1="18" x2="20" y2="18"></line>
+          <circle cx="4" cy="6" r="1" fill="currentColor"></circle>
+          <circle cx="4" cy="12" r="1" fill="currentColor"></circle>
+          <circle cx="4" cy="18" r="1" fill="currentColor"></circle>
+        </svg>
+      </button>
+      <button class="toolbar-btn" data-action="ol" data-tooltip="有序列表 1. 项目">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="10" y1="6" x2="21" y2="6"></line>
+          <line x1="10" y1="12" x2="21" y2="12"></line>
+          <line x1="10" y1="18" x2="21" y2="18"></line>
+          <text x="4" y="8" font-size="8" fill="currentColor">1</text>
+          <text x="4" y="14" font-size="8" fill="currentColor">2</text>
+          <text x="4" y="20" font-size="8" fill="currentColor">3</text>
+        </svg>
+      </button>
+      <button class="toolbar-btn" data-action="hr" data-tooltip="水平线 ---">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+        </svg>
+      </button>
+      <button class="toolbar-btn" data-action="table" data-tooltip="表格 | 列 |">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+          <line x1="3" y1="9" x2="21" y2="9"></line>
+          <line x1="3" y1="15" x2="21" y2="15"></line>
+          <line x1="9" y1="3" x2="9" y2="21"></line>
+          <line x1="15" y1="3" x2="15" y2="21"></line>
+        </svg>
+      </button>
+    </div>
+    
+    <div class="toolbar-group">
+      <button class="toolbar-btn" data-action="emoji" data-tooltip="Emoji 表情">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+          <line x1="9" y1="9" x2="9.01" y2="9"></line>
+          <line x1="15" y1="9" x2="15.01" y2="9"></line>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="main-container">
+    <div class="editor-panel">
+      <textarea class="editor" id="editor" placeholder="开始编写Markdown..."></textarea>
+    </div>
+    <div class="preview-panel">
+      <div class="preview-header">预览</div>
+      <div class="preview" id="preview"></div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <span>&copy; 2026 <a href="https://sylv.top/" target="_blank" rel="noopener noreferrer">Sylvy</a>. All rights reserved.</span>
+    <span>|</span>
+    <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">豫ICP备2026013756号-1</a>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
+    const editor = document.getElementById('editor');
+    const preview = document.getElementById('preview');
+    const fileInput = document.getElementById('fileInput');
+    const importBtn = document.getElementById('importBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const dropdownMenu = document.getElementById('dropdownMenu');
+    const exportMd = document.getElementById('exportMd');
+    const exportHtml = document.getElementById('exportHtml');
+    const toolbarBtns = document.querySelectorAll('.toolbar-btn');
+
+    const historyStack = [];
+    let historyIndex = -1;
+    let isUndoRedo = false;
+
+    function saveHistory() {
+      if (isUndoRedo) return;
+      const content = editor.value;
+      if (historyStack[historyIndex] !== content) {
+        historyStack.splice(historyIndex + 1);
+        historyStack.push(content);
+        historyIndex++;
+        if (historyStack.length > 50) { historyStack.shift(); historyIndex--; }
+      }
+    }
+
+    function renderCustomDetails(html) {
+      return html.replace(/:::details\[([^\]]+)\]<br\s*\/?>/g, '<details><summary>$1</summary><div class="details-content">')
+        .replace(/:::details<br\s*\/?>/g, '<details><summary>点击展开</summary><div class="details-content"><p>')
+        .replace(/:::<br\s*\/?>/g, '</div></details><p>');
+    }
+
+    marked.setOptions({ breaks: true, gfm: true });
+    
+    function updatePreview() {
+      let markdown = editor.value;
+      let admonitionMap = [];
+      
+      markdown = markdown.replace(/>\s*\[!(\w+)\]([^\n]*(?:\n\s*>[^\n]*)*)/gi, (match, type, content) => {
+        type = type.toLowerCase();
+        const cleanedContent = content.split('\n').map(line => line.replace(/^\s*>\s*/, '')).join('\n').trim();
+        admonitionMap.push({ type, content: cleanedContent });
+        return `<ADMNITN${admonitionMap.length - 1}>`;
+      });
+      
+      let html = marked.parse(markdown);
+      
+      for (let index = 0; index < admonitionMap.length; index++) {
+        const admonition = admonitionMap[index];
+        let contentHtml = admonition.content ? marked.parseInline(admonition.content) : '';
+        const titleMap = {
+          'note': 'NOTE',
+          'tip': 'TIP',
+          'important': 'IMPORTANT',
+          'warning': 'WARNING',
+          'caution': 'CAUTION'
+        };
+        const title = titleMap[admonition.type] || admonition.type;
+        const admonitionHtml = `<blockquote class="admonition admonition-${admonition.type}"><span class="admonition-title">${title}</span>${contentHtml}</blockquote>`;
+        
+        const placeholder = `<ADMNITN${index}>`;
+        html = html.replace(`<p>${placeholder}</p>`, admonitionHtml);
+        html = html.replace(placeholder, admonitionHtml);
+      }
+      
+      html = renderCustomDetails(html);
+      html = renderCustomSpoiler(html);
+      
+      preview.innerHTML = html;
+    }
+
+    editor.addEventListener('input', () => { saveHistory(); updatePreview(); });
+
+    const emojiList = ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😜', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤯', '😳', '🥵', '🥶', '😴', '😪', '😵', '😰', '🥱', '😢', '😭', '😤', '😠', '😡', '🤬', '😈', '👿', '💀', '☠️', '💩', '🤡', '👹', '👺', '👻', '👽', '👾', '🤖', '👋', '🤚', '🖐️', '✋', '👌', '✌️', '🤞', '🤟', '🤘', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '👏', '👏', '👐', '🤝', '🙏', '💪', '🦾', '👂', '🧠', '👀', '👶', '🧒', '👦', '👧', '🧑', '👨', '👩', '🐶', '🐱', '🐭', '🐰', '🦊', '🐻', '🐼', '🐨', '🦁', '🐮', '🐷', '🐸', '🐵', '🐒', '🦋', '🐞', '🐜', '🐙', '🦑', '🦀', '🐠', '🐟', '🐬', '🦈', '🐊', '🐅', '🐆', '🦓', '🦍', '🐘', '🦏', '🐪', '🐫', '🐃', '🐂', '🐄', '🐎', '🐖', '🐑', '🐐', '🦌', '🐕', '🐩', '🐈', '🕊️', '🐇', '🦝', '🦡', '🌸', '🌹', '🌻', '🌺', '🌱', '🌲', '🌳', '🍀', '🍁', '🍂', '🍃', '🍇', '🍈', '🍉', '🍊', '🍋', '🍌', '🍍', '🍏', '🍎', '🍐', '🍑', '🍒', '🍓', '🍅', '🥔', '🥕', '🌽', '🌶️', '🥒', '🥬', '🍄', '🥜', '🍞', '🥐', '🥖', '🥚', '🍳', '🥞', '🥓', '🥩', '🍗', '🍖', '🌭', '🍔', '🍟', '🍕', '🌮', '🌯', '🍝', '🍜', '🍲', '🍛', '🍣', '🍱', '🍙', '🍚', '🍘', '🍥', '🍤', '🍡', '🍧', '🍨', '🍦', '🥧', '🧁', '🍰', '🎂', '🍮', '🍭', '🍬', '🍫', '🍿', '🍩', '🍪', '☕', '🍵', '🧃', '🍶', '🍺', '🍻', '🥂', '🍷', '🥃', '🍸', '🍹', '🍾', '🧊', '✅', '❌', '⚠️', '🔔', '💯', '❗', '❓'];
+
+function insertMarkdown(before, after = '') {
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      const selected = editor.value.substring(start, end);
+      const newText = before + selected + after;
+      editor.setRangeText(newText, start, end, 'end');
+      
+      if (selected) {
+        const newPos = end + after.length;
+        editor.setSelectionRange(newPos, newPos);
+      } else {
+        const newPos = start + before.length;
+        editor.setSelectionRange(newPos, newPos);
+      }
+      
+      editor.focus();
+      saveHistory();
+      updatePreview();
+    }
+
+    const actions = {
+      undo: () => {
+        if (historyIndex > 0) {
+          isUndoRedo = true;
+          historyIndex--;
+          editor.value = historyStack[historyIndex];
+          editor.focus();
+          updatePreview();
+          setTimeout(() => isUndoRedo = false, 10);
+        }
+      },
+      redo: () => {
+        if (historyIndex < historyStack.length - 1) {
+          isUndoRedo = true;
+          historyIndex++;
+          editor.value = historyStack[historyIndex];
+          editor.focus();
+          updatePreview();
+          setTimeout(() => isUndoRedo = false, 10);
+        }
+      },
+      bold: () => insertMarkdown('**', '**'),
+      italic: () => insertMarkdown('*', '*'),
+      strike: () => insertMarkdown('~~', '~~'),
+      h1: () => insertMarkdown('# ', ''),
+      h2: () => insertMarkdown('## ', ''),
+      h3: () => insertMarkdown('### ', ''),
+      link: () => insertMarkdown('[', '](url)'),
+      image: () => insertMarkdown('![', '](url)'),
+      code: () => insertMarkdown('`', '`'),
+      'codeblock-fence': () => insertMarkdown('```\n', '\n```'),
+      quote: () => insertMarkdown('> '),
+      ul: () => insertMarkdown('- '),
+      ol: () => insertMarkdown('1. '),
+      hr: () => insertMarkdown('\n---\n'),
+      table: () => insertMarkdown('| 列1 | 列2 | 列3 |\n|------|------|------|\n|    |    |    |'),
+      details: () => insertMarkdown('\n:::details[标题]\n', '\n'),
+      emoji: (e) => {
+        const start = editor.selectionStart;
+        const btn = e.target.closest('.toolbar-btn');
+        const rect = btn.getBoundingClientRect();
+        
+        const popup = document.createElement('div');
+        popup.className = 'emoji-popup';
+        popup.style.top = (rect.bottom + 8) + 'px';
+        popup.style.left = rect.left + 'px';
+        
+        const searchInput = document.createElement('input');
+        searchInput.placeholder = '搜索 emoji...';
+        popup.appendChild(searchInput);
+        
+        const scrollDiv = document.createElement('div');
+        scrollDiv.style.cssText = 'max-height:200px;overflow-y:auto;width:100%;';
+        
+        const displayEmojis = () => {
+          scrollDiv.innerHTML = '';
+          const filter = searchInput.value;
+          const filtered = filter ? emojiList.slice(0, 50) : emojiList;
+          
+          filtered.forEach(emoji => {
+            const btn = document.createElement('button');
+            btn.className = 'emoji-btn';
+            btn.textContent = emoji;
+            btn.addEventListener('click', () => {
+              editor.setRangeText(emoji, start, start, 'end');
+              editor.focus();
+              saveHistory();
+              updatePreview();
+              popup.remove();
+            });
+            scrollDiv.appendChild(btn);
+          });
+        };
+        
+        displayEmojis();
+        searchInput.addEventListener('input', displayEmojis);
+        
+        popup.appendChild(scrollDiv);
+        document.body.appendChild(popup);
+        
+        const closePopup = (ev) => {
+          if (!popup.contains(ev.target) && !ev.target.closest('[data-action="emoji"]')) {
+            popup.remove();
+            document.removeEventListener('click', closePopup);
+          }
+        };
+        setTimeout(() => document.addEventListener('click', closePopup), 100);
+      }
+    };
+
+    const admonitionBtn = document.getElementById('admonitionBtn');
+    let admonitionMenu = null;
+    
+    admonitionBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      
+      if (admonitionMenu) {
+        admonitionMenu.remove();
+        admonitionMenu = null;
+        return;
+      }
+      
+      const rect = admonitionBtn.getBoundingClientRect();
+      
+      admonitionMenu = document.createElement('div');
+      admonitionMenu.style.cssText = 'position:fixed;top:' + (rect.bottom + 8) + 'px;left:' + rect.left + 'px;background:var(--bg-editor);border:1px solid var(--border);border-radius:6px;z-index:99999;min-width:120px;overflow:hidden;';
+      
+      const types = ['note', 'tip', 'important', 'warning', 'caution'];
+      types.forEach(type => {
+        const btn = document.createElement('button');
+        btn.style.cssText = 'display:block;width:100%;padding:8px 16px;border:none;background:transparent;color:var(--text-primary);cursor:pointer;text-align:left;white-space:nowrap;font-size:14px;';
+        btn.textContent = type;
+        btn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          // 插入 GitHub 风格的 alert 语法，使用大写类型
+          const upperType = type.charAt(0).toUpperCase() + type.slice(1);
+          insertMarkdown('\n> [!' + upperType + ']\n> ', '\n\n');
+          admonitionMenu.remove();
+          admonitionMenu = null;
+        });
+        btn.addEventListener('mouseenter', () => { btn.style.background = 'var(--button-hover)'; });
+        btn.addEventListener('mouseleave', () => { btn.style.background = 'transparent'; });
+        admonitionMenu.appendChild(btn);
+      });
+      
+      document.body.appendChild(admonitionMenu);
+      
+      const closeMenu = (ev) => {
+        if (admonitionMenu && !admonitionMenu.contains(ev.target) && ev.target !== admonitionBtn) {
+          admonitionMenu.remove();
+          admonitionMenu = null;
+          document.removeEventListener('click', closeMenu);
+        }
+      };
+      setTimeout(() => document.addEventListener('click', closeMenu), 100);
+    });
+
+    toolbarBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const action = btn.dataset.action;
+        if (actions[action]) { actions[action](e); }
+      });
+    });
+
+    importBtn.addEventListener('click', () => { fileInput.click(); });
+
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          editor.value = event.target.result;
+          saveHistory();
+          updatePreview();
+        };
+        reader.readAsText(file);
+      }
+      fileInput.value = '';
+    });
+
+    exportBtn.addEventListener('click', () => { dropdownMenu.classList.toggle('show'); });
+
+    document.addEventListener('click', (e) => {
+      if (!exportBtn.contains(e.target) && !dropdownMenu.contains(e.target)) {
+        dropdownMenu.classList.remove('show');
+      }
+    });
+
+    function downloadFile(filename, content, type) {
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      dropdownMenu.classList.remove('show');
+    }
+
+    exportMd.addEventListener('click', () => { downloadFile('文档.md', editor.value, 'text/markdown'); });
+
+    exportHtml.addEventListener('click', () => {
+      const htmlContent = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文档</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 40px 20px; line-height: 1.6; color: #333; }
+    h1, h2, h3 { margin-top: 24px; }
+    code { background: #f4f4f4; padding: 2px 6px; border-radius: 4px; }
+    pre { background: #f4f4f4; padding: 16px; border-radius: 8px; overflow-x: auto; }
+    pre code { background: transparent; padding: 0; }
+    blockquote { border-left: 4px solid #cba6f7; padding-left: 16px; margin: 16px 0; color: #666; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+    th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+    th { background: #f4f4f4; }
+    img { max-width: 100%; }
+  </style>
+</head>
+<body>
+${preview.innerHTML}
+</body>
+</html>`;
+      downloadFile('文档.html', htmlContent, 'text/html');
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        downloadFile('文档.md', editor.value, 'text/markdown');
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); actions.undo(); }
+      if (((e.ctrlKey || e.metaKey) && e.key === 'y') || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z')) {
+        e.preventDefault();
+        actions.redo();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b') { e.preventDefault(); actions.bold(); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'i') { e.preventDefault(); actions.italic(); }
+    });
+
+    document.querySelectorAll('.toolbar-btn').forEach(btn => {
+      btn.addEventListener('mouseenter', (e) => {
+        const rect = btn.getBoundingClientRect();
+        btn.style.setProperty('--tooltip-top', rect.bottom + 'px');
+        btn.style.setProperty('--tooltip-left', (rect.left + rect.width / 2) + 'px');
+      });
+    });
+
+    saveHistory();
+  </script>
+</body>
+</html>
