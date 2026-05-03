@@ -35,7 +35,7 @@
 
 ### 使用方法
 
-> 可直接前往[此处](https://mde.ylv.top/)体验
+> 可直接前往[此处](https://md.ylv.top/)体验
 
 1. 直接用浏览器打开 `index.html` 文件
 2. 在左侧编辑区输入 Markdown 内容
