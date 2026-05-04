@@ -2,7 +2,10 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Markdown 编辑器</title>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght=400;500&display="stylesheet">
   <style>
@@ -315,11 +318,90 @@
     .emoji-btn:hover { background: var(--button-hover); }
     
     @media (max-width: 768px) {
+      header { height: 50px; padding: 0 12px; }
+      .logo { font-size: 16px; }
+      .logo svg { width: 22px; height: 22px; }
+      .header-actions { gap: 6px; }
+      .btn { padding: 6px 10px; font-size: 12px; }
+      
+      .toolbar {
+        padding: 6px;
+        min-height: 48px;
+        gap: 2px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      
+      .toolbar-group {
+        padding: 0 4px;
+        gap: 2px;
+      }
+      
+      .toolbar-btn {
+        min-width: 36px;
+        height: 36px;
+        padding: 8px;
+        font-size: 14px;
+      }
+      
       .main-container { flex-direction: column; }
       .editor-panel, .preview-panel { width: 100%; height: 50%; border-right: none; }
       .editor-panel { border-bottom: 2px solid var(--border); }
-      .toolbar { padding: 6px 8px; }
-      .toolbar-group { padding: 0 4px; }
+      .editor { font-size: 16px; padding: 12px; }
+      
+      .preview { padding: 12px 16px; }
+      .preview h1 { font-size: 20px; }
+      .preview h2 { font-size: 18px; }
+      .preview h3 { font-size: 16px; }
+      .preview h4, .preview h5, .preview h6 { font-size: 14px; }
+      
+      .emoji-popup {
+        width: 280px;
+        max-height: 250px;
+      }
+      
+      .footer {
+        flex-direction: column;
+        height: auto;
+        padding: 8px;
+        gap: 4px;
+        font-size: 11px;
+      }
+      
+      .dropdown-menu {
+        position: fixed;
+        top: auto;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        border-radius: 12px 12px 0 0;
+        max-height: 50vh;
+        overflow-y: auto;
+      }
+      
+      .dropdown-menu button {
+        padding: 14px 20px;
+        font-size: 16px;
+        min-height: 48px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      header { height: 44px; padding: 0 8px; }
+      .logo { font-size: 14px; gap: 6px; }
+      .logo svg { width: 18px; height: 18px; }
+      .header-actions { gap: 4px; }
+      .btn { padding: 5px 8px; font-size: 11px; }
+      
+      .toolbar { padding: 4px; }
+      .toolbar-group { padding: 0 2px; }
+      .toolbar-btn { min-width: 32px; height: 32px; padding: 6px; }
+      
+      .editor-panel, .preview-panel { height: 45%; }
+      .editor { font-size: 15px; }
+      .preview h1 { font-size: 18px; }
+      .preview h2 { font-size: 16px; }
+      .preview h3 { font-size: 15px; }
     }
   </style>
 </head>
@@ -810,6 +892,24 @@ ${preview.innerHTML}
         btn.style.setProperty('--tooltip-left', (rect.left + rect.width / 2) + 'px');
       });
     });
+
+    // 移动端触摸反馈
+    if ('ontouchstart' in window) {
+      document.querySelectorAll('.toolbar-btn, .btn, .dropdown-menu button, .emoji-btn').forEach(el => {
+        el.addEventListener('touchstart', () => { el.style.opacity = '0.7'; }, { passive: true });
+        el.addEventListener('touchend', () => { el.style.opacity = '1'; }, { passive: true });
+      });
+    }
+
+    // 防止双击缩放
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', (e) => {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 300) {
+        e.preventDefault();
+      }
+      lastTouchEnd = now;
+    }, false);
 
     saveHistory();
   </script>
