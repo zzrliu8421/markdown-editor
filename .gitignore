@@ -1,0 +1,11 @@
+# AgentTeams 协作状态（本地临时文件）
+.agent-teams/
+
+# 系统文件
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# 编辑器
+.vscode/
+.idea/
