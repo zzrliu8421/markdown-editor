@@ -1,0 +1,1634 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" id="metaTheme" content="#0A0C08">
+  <title>MD 终端 · Markdown Editor</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    /* ============ MD·TERM · 复古打字机终端 CRT 设计系统 ============ */
+    /* 双磷光体：P1（绿磷光） / P3（琥珀磷光）。默认 P1，手动切换后记忆。 */
+    :root {
+      --font-ui: ui-monospace, "SF Mono", "Cascadia Code", Consolas,
+                 Menlo, Monaco, "Courier New", monospace;
+      --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas,
+                   Menlo, Monaco, "Courier New", monospace;
+
+      --radius-sm: 2px;
+      --radius-md: 3px;
+      --radius-lg: 4px;
+      --speed: 0.18s;
+    }
+
+    html { scroll-behavior: auto; }
+
+    /* ---------- P1 · 绿磷光 ---------- */
+    html[data-phos="p1"] {
+      --bg-base: #0A0C08;
+      --bg-surface: #0E120C;
+      --bg-hover: #131A11;
+      --bg-active: #182016;
+      --border: rgba(70, 224, 122, 0.16);
+      --border-strong: rgba(70, 224, 122, 0.30);
+      --text-primary: #A9EFB9;
+      --text-secondary: #5F9E70;
+      --text-muted: #45684F;
+      --accent: #46E07A;
+      --accent-hover: #6BEB97;
+      --accent-subtle: rgba(70, 224, 122, 0.10);
+      --ring: rgba(70, 224, 122, 0.35);
+      --shadow-popover: 0 12px 32px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.40);
+      --toast-bg: #46E07A;
+      --toast-text: #050705;
+      --selection: rgba(70, 224, 122, 0.30);
+      --accent-wash: rgba(70, 224, 122, 0.12);
+      --accent-wash-strong: rgba(70, 224, 122, 0.22);
+      --glow-strong: rgba(70, 224, 122, 0.40);
+      --glow-soft: rgba(70, 224, 122, 0.18);
+      --crt-vignette: rgba(70, 224, 122, 0.045);
+      color-scheme: dark;
+    }
+    /* ---------- P3 · 琥珀磷光 ---------- */
+    html[data-phos="p3"] {
+      --bg-base: #0C0A06;
+      --bg-surface: #12100A;
+      --bg-hover: #1A160D;
+      --bg-active: #221C10;
+      --border: rgba(255, 184, 77, 0.16);
+      --border-strong: rgba(255, 184, 77, 0.30);
+      --text-primary: #F2D9A4;
+      --text-secondary: #B3905A;
+      --text-muted: #7A6540;
+      --accent: #FFB84D;
+      --accent-hover: #FFC973;
+      --accent-subtle: rgba(255, 184, 77, 0.10);
+      --ring: rgba(255, 184, 77, 0.35);
+      --shadow-popover: 0 12px 32px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.40);
+      --toast-bg: #FFB84D;
+      --toast-text: #0A0703;
+      --selection: rgba(255, 184, 77, 0.30);
+      --accent-wash: rgba(255, 184, 77, 0.12);
+      --accent-wash-strong: rgba(255, 184, 77, 0.22);
+      --glow-strong: rgba(255, 184, 77, 0.40);
+      --glow-soft: rgba(255, 184, 77, 0.18);
+      --crt-vignette: rgba(255, 184, 77, 0.045);
+      color-scheme: dark;
+    }
+
+    body {
+      font-family: var(--font-mono);
+      background: var(--bg-base);
+      color: var(--text-primary);
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: background-color 0.25s ease-out, color 0.25s ease-out;
+    }
+    /* CRT 扫描线覆盖层：全屏固定，不参与滚动、不拦截交互 */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(0deg, rgba(0,0,0,0.22) 0 1px, transparent 1px 3px);
+      pointer-events: none;
+      z-index: 9998;
+    }
+    ::selection { background: var(--selection); }
+    :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+    /* ============ 顶栏 ============ */
+    header {
+      height: 58px;
+      flex-shrink: 0;
+      background: var(--bg-base);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 22px;
+      gap: 12px;
+    }
+    .brand {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      min-width: 0;
+    }
+    /* 终端 Logo：方框提示符 ">_" */
+    .seal {
+      width: 32px;
+      height: 32px;
+      flex-shrink: 0;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--accent);
+      background: var(--accent-subtle);
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: -0.08em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 10px var(--glow-soft);
+      cursor: default;
+      user-select: none;
+      transition: box-shadow var(--speed) ease-out, background-color var(--speed) ease-out;
+      align-self: center;
+    }
+    .seal:hover { box-shadow: 0 0 14px var(--glow-strong); }
+    .brand-name {
+      font-family: var(--font-mono);
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      text-shadow: 0 0 8px var(--glow-strong);
+      white-space: nowrap;
+    }
+    .brand-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .brand-sub::before {
+      content: '';
+      display: inline-block;
+      width: 1px;
+      height: 12px;
+      background: var(--border-strong);
+      margin-right: 10px;
+      vertical-align: -1px;
+    }
+
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+    .btn {
+      padding: 7px 14px;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: var(--font-ui);
+      transition: background-color var(--speed) ease-out, color var(--speed) ease-out,
+                  border-color var(--speed) ease-out, transform var(--speed) ease-out;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn-primary { background: var(--accent); color: var(--bg-base); }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-primary);
+      border: 1px solid var(--border-strong);
+    }
+    .btn-ghost:hover { background: var(--bg-hover); }
+    .btn-icon {
+      padding: 7px;
+      width: 32px;
+      height: 32px;
+      justify-content: center;
+    }
+    .btn-icon svg { width: 16px; height: 16px; }
+
+    /* 磷光体切换：P1 / P3（mono 小文本按钮，无图标） */
+    #themeBtn {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      border-color: var(--border-strong);
+    }
+    #themeBtn:hover { color: var(--accent-hover); }
+
+    /* ============ 工具栏 ============ */
+    .toolbar {
+      flex-shrink: 0;
+      background: var(--bg-base);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 7px 12px;
+      gap: 6px;
+      overflow-x: auto;
+      flex-wrap: wrap;
+      min-height: 46px;
+    }
+    .toolbar::-webkit-scrollbar { height: 6px; }
+    .toolbar::-webkit-scrollbar-track { background: transparent; }
+    .toolbar::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+    .toolbar-group { display: flex; align-items: center; gap: 2px; }
+    .toolbar-group + .toolbar-group {
+      position: relative;
+      padding-left: 15px;
+    }
+    .toolbar-group + .toolbar-group::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: calc(50% - 10px);
+      width: 1px;
+      height: 20px;
+      background: var(--border);
+    }
+    .toolbar-btn {
+      padding: 0;
+      background: transparent;
+      border: none;
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: var(--font-ui);
+      white-space: nowrap;
+      transition: color var(--speed) ease-out, background-color var(--speed) ease-out;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 32px;
+      height: 32px;
+      position: relative;
+    }
+    .toolbar-btn:hover { background: var(--accent-wash); color: var(--accent); }
+    .toolbar-btn:active { background: var(--accent-wash-strong); }
+    .toolbar-btn svg { width: 16px; height: 16px; }
+    /* 字形按钮：mono B / I / S */
+    .glyph {
+      font-family: var(--font-mono);
+      font-size: 15px;
+      line-height: 1;
+    }
+    .glyph-b { font-weight: 700; }
+    .glyph-i { font-style: italic; font-weight: 600; }
+    .glyph-s { text-decoration: line-through; font-weight: 600; }
+    .toolbar-btn[data-tooltip]:hover::after {
+      content: attr(data-tooltip);
+      position: fixed;
+      top: calc(var(--tooltip-top, 0px) + 8px);
+      left: var(--tooltip-left);
+      transform: translateX(-50%);
+      background: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      padding: 5px 11px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      z-index: 10000;
+      color: var(--text-primary);
+      pointer-events: none;
+      box-shadow: var(--shadow-popover);
+    }
+
+    /* ============ 主区：输入 | 输出 ============ */
+    .main-container {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      min-height: 0;
+    }
+    .editor-panel {
+      width: var(--split-w, 50%);
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      /* CRT 荧光不均匀感：超淡径向辉光，极低调 */
+      background-image: radial-gradient(ellipse 90% 70% at 50% 0%, var(--crt-vignette), transparent 70%);
+    }
+    .preview-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-surface);
+      min-width: 0;
+      border-left: 1px solid var(--border);
+    }
+    .panel-label {
+      height: 34px;
+      flex-shrink: 0;
+      background: var(--bg-base);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 22px;
+      font-size: 12px;
+      color: var(--accent);
+      letter-spacing: 0.06em;
+      text-shadow: 0 0 8px var(--glow-soft);
+      gap: 7px;
+    }
+    .split-handle {
+      width: 9px;
+      margin: 0 -4px;
+      flex-shrink: 0;
+      cursor: col-resize;
+      position: relative;
+      z-index: 5;
+      touch-action: none;
+    }
+    .split-handle::before {
+      content: '';
+      position: absolute;
+      left: 4px;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: var(--border);
+      transition: background-color var(--speed) ease-out;
+    }
+    .split-handle:hover::before, .split-handle.dragging::before {
+      background: var(--accent);
+    }
+    body.dragging { cursor: col-resize; user-select: none; }
+
+    .editor {
+      flex: 1;
+      width: 100%;
+      padding: 24px 28px 48px;
+      background: transparent;
+      color: var(--text-primary);
+      border: none;
+      resize: none;
+      font-family: var(--font-mono);
+      font-size: 15px;
+      line-height: 1.9;
+      outline: none;
+      caret-color: var(--accent);
+    }
+    .editor:focus-visible { outline: none; }
+    .editor::placeholder { color: var(--text-muted); }
+
+    .preview-body {
+      flex: 1;
+      position: relative;
+      display: flex;
+      min-height: 0;
+    }
+    .preview {
+      flex: 1;
+      padding: 28px 36px 64px;
+      background: transparent;
+      overflow-y: auto;
+      font-size: 16px;
+      line-height: 1.9;
+      min-width: 0;
+      text-shadow: 0 0 6px var(--glow-soft);
+    }
+    .preview-panel.is-empty .preview { display: none; }
+    .preview::-webkit-scrollbar, .editor::-webkit-scrollbar { width: 8px; }
+    .preview::-webkit-scrollbar-track, .editor::-webkit-scrollbar-track { background: transparent; }
+    .preview::-webkit-scrollbar-thumb, .editor::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+      border-radius: 2px;
+    }
+
+    /* 空状态：待读取的文档 */
+    .empty-state {
+      margin: auto;
+      text-align: center;
+      padding: 32px;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .preview-panel.is-empty .empty-state { display: flex; }
+    .empty-seal {
+      width: 56px;
+      height: 56px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--accent);
+      background: var(--accent-subtle);
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-size: 22px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 16px var(--glow-soft);
+      margin-bottom: 14px;
+    }
+    .empty-state h2 {
+      font-family: var(--font-mono);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-primary);
+      text-shadow: 0 0 8px var(--glow-soft);
+    }
+    .empty-state p { font-size: 13.5px; color: var(--text-muted); margin-bottom: 16px; }
+    .empty-actions { display: flex; gap: 10px; }
+
+    /* ============ 预览排版 ============ */
+    .preview h1 {
+      font-family: var(--font-mono);
+      font-size: 25px;
+      font-weight: 700;
+      margin: 30px 0 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      text-shadow: 0 0 8px var(--glow-strong);
+    }
+    .preview h1:first-child { margin-top: 0; }
+    .preview h2 {
+      font-family: var(--font-mono);
+      font-size: 20px;
+      font-weight: 700;
+      margin: 26px 0 13px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+      text-shadow: 0 0 8px var(--glow-strong);
+    }
+    .preview h3 {
+      font-family: var(--font-mono);
+      font-size: 17px;
+      font-weight: 700;
+      margin: 22px 0 11px;
+      text-shadow: 0 0 8px var(--glow-strong);
+    }
+    .preview h4, .preview h5, .preview h6 {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 18px 0 9px;
+      color: var(--text-secondary);
+    }
+    .preview p { margin: 12px 0; }
+    .preview a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-decoration-color: var(--ring);
+      text-underline-offset: 3px;
+      transition: color var(--speed) ease-out, text-decoration-color var(--speed) ease-out;
+    }
+    .preview a:hover { color: var(--accent-hover); text-decoration-color: var(--accent-hover); }
+    .preview strong { font-weight: 700; }
+    .preview code {
+      font-family: var(--font-mono);
+      background: var(--bg-hover);
+      color: var(--accent-hover);
+      padding: 2px 6px;
+      border-radius: var(--radius-sm);
+      font-size: 0.85em;
+    }
+    .preview pre {
+      background: var(--bg-surface);
+      padding: 15px 17px;
+      border-radius: var(--radius-md);
+      overflow-x: auto;
+      margin: 15px 0;
+      border: 1px solid var(--border);
+    }
+    .preview pre code {
+      background: transparent;
+      color: var(--text-primary);
+      padding: 0;
+      border-radius: 0;
+      font-size: 13.5px;
+      line-height: 1.7;
+      text-shadow: none;
+    }
+    .preview blockquote {
+      border-left: 3px solid var(--border-strong);
+      padding: 2px 0 2px 15px;
+      margin: 15px 0;
+      color: var(--text-secondary);
+    }
+    /* 提示框：终端日志风格 */
+    .preview blockquote.admonition {
+      padding: 12px 16px;
+      border-radius: var(--radius-md);
+      margin: 15px 0;
+      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    html[data-phos="p1"] .preview blockquote.admonition-note { border-left-color: #46E07A; background: rgba(70, 224, 122, 0.10); }
+    html[data-phos="p1"] .preview blockquote.admonition-tip { border-left-color: #8CF5AD; background: rgba(140, 245, 173, 0.10); }
+    html[data-phos="p1"] .preview blockquote.admonition-important { border-left-color: #FF7EB6; background: rgba(255, 126, 182, 0.10); }
+    html[data-phos="p1"] .preview blockquote.admonition-warning { border-left-color: #F5D76B; background: rgba(245, 215, 107, 0.10); }
+    html[data-phos="p1"] .preview blockquote.admonition-caution { border-left-color: #FF6B6B; background: rgba(255, 107, 107, 0.10); }
+    html[data-phos="p3"] .preview blockquote.admonition-note { border-left-color: #FFB84D; background: rgba(255, 184, 77, 0.10); }
+    html[data-phos="p3"] .preview blockquote.admonition-tip { border-left-color: #FFD98F; background: rgba(255, 217, 143, 0.10); }
+    html[data-phos="p3"] .preview blockquote.admonition-important { border-left-color: #FF9E64; background: rgba(255, 158, 100, 0.10); }
+    html[data-phos="p3"] .preview blockquote.admonition-warning { border-left-color: #F5D76B; background: rgba(245, 215, 107, 0.10); }
+    html[data-phos="p3"] .preview blockquote.admonition-caution { border-left-color: #FF6B6B; background: rgba(255, 107, 107, 0.10); }
+    .admonition-title {
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      letter-spacing: 0.06em;
+    }
+    .admonition-title::before { content: '[ '; opacity: 0.65; }
+    .admonition-title::after { content: ' ]'; opacity: 0.65; }
+    html[data-phos="p1"] .preview blockquote.admonition-note .admonition-title { color: #46E07A; }
+    html[data-phos="p1"] .preview blockquote.admonition-tip .admonition-title { color: #8CF5AD; }
+    html[data-phos="p1"] .preview blockquote.admonition-important .admonition-title { color: #FF7EB6; }
+    html[data-phos="p1"] .preview blockquote.admonition-warning .admonition-title { color: #F5D76B; }
+    html[data-phos="p1"] .preview blockquote.admonition-caution .admonition-title { color: #FF6B6B; }
+    html[data-phos="p3"] .preview blockquote.admonition-note .admonition-title { color: #FFB84D; }
+    html[data-phos="p3"] .preview blockquote.admonition-tip .admonition-title { color: #FFD98F; }
+    html[data-phos="p3"] .preview blockquote.admonition-important .admonition-title { color: #FF9E64; }
+    html[data-phos="p3"] .preview blockquote.admonition-warning .admonition-title { color: #F5D76B; }
+    html[data-phos="p3"] .preview blockquote.admonition-caution .admonition-title { color: #FF6B6B; }
+    .admonition-icon { display: inline-flex; line-height: 0; }
+    .admonition-icon svg { width: 14px; height: 14px; }
+
+    .preview details {
+      background: var(--bg-base);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      margin: 15px 0;
+      overflow: hidden;
+    }
+    .preview summary {
+      list-style: none;
+      padding: 11px 15px;
+      cursor: pointer;
+      font-weight: 500;
+      color: var(--text-primary);
+      transition: background-color var(--speed) ease-out, color var(--speed) ease-out;
+    }
+    .preview summary::-webkit-details-marker { display: none; }
+    .preview summary::before {
+      content: '▸';
+      display: inline-block;
+      width: 1em;
+      margin-right: 7px;
+      color: var(--accent);
+    }
+    .preview details[open] summary::before { content: '▾'; }
+    .preview summary:hover { background: var(--bg-hover); color: var(--accent-hover); }
+    .preview details[open] summary { border-bottom: 1px solid var(--border); }
+    .preview .details-content { padding: 13px 15px; }
+
+    .preview ul, .preview ol { margin: 12px 0; padding-left: 26px; }
+    .preview li { margin: 6px 0; }
+    .preview ul li::marker, .preview ol li::marker { color: var(--accent); }
+    .preview hr { border: none; border-top: 1px solid var(--border); margin: 30px 0; }
+    .preview table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .preview th, .preview td { border: 1px solid var(--border); padding: 8px 13px; text-align: left; }
+    .preview th { background: var(--bg-hover); font-weight: 600; }
+    .preview tbody tr:nth-child(even) { background: var(--accent-subtle); }
+    .preview img { max-width: 100%; border-radius: var(--radius-md); border: 1px solid var(--border); }
+
+    /* ============ 状态栏 ============ */
+    .statusbar {
+      height: 36px;
+      flex-shrink: 0;
+      background: var(--bg-base);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-muted);
+      padding: 0 20px;
+      gap: 16px;
+      text-shadow: 0 0 8px var(--glow-strong);
+    }
+    .statusbar .stats, .statusbar .save-stamp {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      white-space: nowrap;
+    }
+    .statusbar .save-stamp::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      opacity: 0.55;
+    }
+    .statusbar a { color: var(--text-muted); text-decoration: none; transition: color var(--speed) ease-out; }
+    .statusbar a:hover { color: var(--accent); }
+    .statusbar .divider-dot { opacity: 0.5; }
+
+    /* ============ 弹层 ============ */
+    .dropdown { position: relative; }
+    .dropdown-menu {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 8px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      display: none;
+      z-index: 100;
+      min-width: 168px;
+      box-shadow: var(--shadow-popover);
+      padding: 4px;
+    }
+    .dropdown-menu.show { display: block; animation: fadeIn 0.15s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .dropdown-menu button {
+      display: block;
+      width: 100%;
+      padding: 10px 14px;
+      border: none;
+      background: transparent;
+      color: var(--text-primary);
+      text-align: left;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: var(--font-ui);
+      border-radius: var(--radius-sm);
+      transition: background-color var(--speed) ease-out;
+    }
+    .dropdown-menu button:hover { background: var(--bg-hover); }
+    .hidden-input { display: none; }
+
+    .emoji-popup {
+      position: fixed;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      max-height: 340px;
+      overflow-y: auto;
+      z-index: 1000;
+      display: flex;
+      flex-wrap: wrap;
+      width: 340px;
+      gap: 4px;
+      box-shadow: var(--shadow-popover);
+      animation: fadeIn 0.15s ease-out;
+    }
+    .emoji-popup input {
+      width: 100%;
+      padding: 8px 12px;
+      margin-bottom: 8px;
+      background: var(--bg-base);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-size: 14px;
+      font-family: var(--font-ui);
+      outline: none;
+      caret-color: var(--accent);
+      transition: border-color var(--speed) ease-out;
+    }
+    .emoji-popup input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+    .emoji-popup input::placeholder { color: var(--text-muted); }
+    .emoji-btn {
+      background: transparent;
+      border: none;
+      font-size: 22px;
+      cursor: pointer;
+      padding: 6px;
+      border-radius: var(--radius-sm);
+      transition: background-color var(--speed) ease-out;
+    }
+    .emoji-btn:hover { background: var(--bg-hover); }
+
+    /* Toast */
+    .toast-wrap {
+      position: fixed;
+      bottom: 52px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10001;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .toast {
+      background: var(--toast-bg);
+      color: var(--toast-text);
+      padding: 9px 18px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      box-shadow: var(--shadow-popover);
+      animation: toastIn 0.2s ease-out;
+      transition: opacity 0.25s ease-out, transform 0.25s ease-out;
+    }
+    .toast.out { opacity: 0; transform: translateY(6px); }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ============ 响应式 ============ */
+    @media (max-width: 768px) {
+      header { height: 52px; padding: 0 14px; }
+      .brand-name { font-size: 15px; }
+      .brand-sub { display: none; }
+      .seal { width: 30px; height: 30px; font-size: 12px; }
+      .header-actions { gap: 6px; }
+      .btn { padding: 7px 12px; font-size: 12px; }
+
+      .toolbar { padding: 7px 10px; min-height: 54px; gap: 6px; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
+      .toolbar-group + .toolbar-group { padding-left: 13px; }
+      .toolbar-btn { min-width: 40px; height: 40px; font-size: 14px; }
+
+      .split-handle { display: none; }
+      .main-container { flex-direction: column; }
+      .editor-panel {
+        width: 100% !important;
+        height: 50%;
+      }
+      .preview-panel { width: 100%; height: 50%; border-left: none; border-top: 1px solid var(--border); }
+      .editor { font-size: 16px; padding: 16px 18px 32px; }
+      .preview { padding: 18px 20px 40px; }
+      .preview h1 { font-size: 21px; }
+      .preview h2 { font-size: 18px; }
+      .preview h3 { font-size: 16px; }
+      .panel-label { padding: 0 16px; }
+
+      .emoji-popup { width: 290px; max-height: 280px; }
+
+      .statusbar {
+        flex-direction: column;
+        height: auto;
+        min-height: 44px;
+        padding: 9px 16px;
+        padding-bottom: max(9px, calc(env(safe-area-inset-bottom) + 7px));
+        gap: 5px;
+        font-size: 11px;
+        text-align: center;
+      }
+      .statusbar .stats, .statusbar .save-stamp { gap: 10px; }
+
+      .dropdown-menu {
+        position: fixed;
+        top: auto;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        border-radius: var(--radius-md) var(--radius-md) 0 0;
+        max-height: 50vh;
+        overflow-y: auto;
+        margin: 0;
+      }
+      .dropdown-menu button { padding: 14px 18px; font-size: 16px; min-height: 48px; }
+    }
+
+    @media (max-width: 480px) {
+      header { height: 48px; padding: 0 10px; }
+      .btn { padding: 6px 10px; font-size: 11px; }
+      .editor-panel, .preview-panel { height: 45%; }
+      .preview h1 { font-size: 19px; }
+      .preview h2 { font-size: 17px; }
+      .preview h3 { font-size: 15px; }
+    }
+  </style>
+  <script>
+    /* 磷光体预载：避免闪烁。默认 P1 绿磷光，手动切换后记忆。 */
+    (function () {
+      var saved = null;
+      try { saved = localStorage.getItem('term:phos'); } catch (e) {}
+      document.documentElement.dataset.phos = saved === 'p3' ? 'p3' : 'p1';
+    })();
+  </script>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="seal" title="MD·TERM">&gt;_</div>
+      <span class="brand-name">MD·TERM</span>
+      <span class="brand-sub">Markdown Terminal</span>
+    </div>
+    <div class="header-actions">
+      <input type="file" id="fileInput" class="hidden-input" accept=".md,.txt">
+      <button class="btn btn-ghost" id="importBtn">导入</button>
+      <div class="dropdown">
+        <button class="btn btn-primary" id="exportBtn">导出</button>
+        <div class="dropdown-menu" id="dropdownMenu">
+          <button id="exportMd">导出为 .md</button>
+          <button id="exportHtml">导出为 .html</button>
+          <button id="copyMd">复制 Markdown</button>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-icon" id="themeBtn" aria-label="切换 磷光体 P1/P3" title="切换 磷光体 P1/P3">P1</button>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="toolbar-group">
+      <button class="toolbar-btn" data-action="undo" data-tooltip="撤销 (Ctrl+Z)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 7v6h6"></path>
+          <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
+        </svg>
+      </button>
+      <button class="toolbar-btn" data-action="redo" data-tooltip="重做 (Ctrl+Y)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 7v6h-6"></path>
+          <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"></path>
+        </svg>
+      </button>
+    </div>
+
+    <div class="toolbar-group">
+      <button class="toolbar-btn" data-action="bold" data-tooltip="粗体 **文本**"><span class="glyph glyph-b">B</span></button>
+      <button class="toolbar-btn" data-action="italic" data-tooltip="斜体 *文本*"><span class="glyph glyph-i">I</span></button>
+      <button class="toolbar-btn" data-action="strike" data-tooltip="删除线 ~~文本~~"><span class="glyph glyph-s">S</span></button>
+    </div>
+
+    <div class="toolbar-group">
+      <button class="toolbar-btn" data-action="h1" data-tooltip="一级标题 # 标题">H1</button>
+      <button class="toolbar-btn" data-action="h2" data-tooltip="二级标题 ## 标题">H2</button>
+      <button class="toolbar-btn" data-action="h3" data-tooltip="三级标题 ### 标题">H3</button>
+    </div>
+
+    <div class="toolbar-group">
+      <button class="toolbar-btn" data-action="link" data-tooltip="链接 [文本](url)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+        </svg>
+      </button>
+      <button class="toolbar-btn" data-action="image" data-tooltip="图片 ![说明](url)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <circle cx="8.5" cy="8.5" r="1.5"></circle>
+          <polyline points="21 15 16 10 5 21"></polyline>
+        </svg>
+      </button>
+    </div>
+
+    <div class="toolbar-group">
+      <button class="toolbar-btn" data-action="code" data-tooltip="行内代码 `代码`">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="16 18 22 12 16 6"></polyline>
+          <polyline points="8 6 2 12 8 18"></polyline>
+        </svg>
+      </button>
+      <button class="toolbar-btn" data-action="codeblock-fence" data-tooltip="代码块 ```代码```">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+          <polyline points="9 9 6 12 9 15"></polyline>
+          <polyline points="15 9 18 12 15 15"></polyline>
+        </svg>
+      </button>
+    </div>
+
+    <div class="toolbar-group">
+      <button class="toolbar-btn" data-action="quote" data-tooltip="引用 > 文本">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V21z"></path>
+          <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"></path>
+        </svg>
+      </button>
+      <button class="toolbar-btn" id="admonitionBtn" data-tooltip="提示框集合">提示框</button>
+      <button class="toolbar-btn" data-action="details" data-tooltip="折叠内容 :::details[标题]">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="6 9 12 15 18 9"></polyline>
+          <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+        </svg>
+      </button>
+    </div>
+
+    <div class="toolbar-group">
+      <button class="toolbar-btn" data-action="ul" data-tooltip="无序列表 - 项目">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="9" y1="6" x2="20" y2="6"></line>
+          <line x1="9" y1="12" x2="20" y2="12"></line>
+          <line x1="9" y1="18" x2="20" y2="18"></line>
+          <circle cx="4" cy="6" r="1" fill="currentColor"></circle>
+          <circle cx="4" cy="12" r="1" fill="currentColor"></circle>
+          <circle cx="4" cy="18" r="1" fill="currentColor"></circle>
+        </svg>
+      </button>
+      <button class="toolbar-btn" data-action="ol" data-tooltip="有序列表 1. 项目">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="10" y1="6" x2="21" y2="6"></line>
+          <line x1="10" y1="12" x2="21" y2="12"></line>
+          <line x1="10" y1="18" x2="21" y2="18"></line>
+          <text x="4" y="8" font-size="8" fill="currentColor">1</text>
+          <text x="4" y="14" font-size="8" fill="currentColor">2</text>
+          <text x="4" y="20" font-size="8" fill="currentColor">3</text>
+        </svg>
+      </button>
+      <button class="toolbar-btn" data-action="hr" data-tooltip="水平线 ---">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+        </svg>
+      </button>
+      <button class="toolbar-btn" data-action="table" data-tooltip="表格 | 列 |">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+          <line x1="3" y1="9" x2="21" y2="9"></line>
+          <line x1="3" y1="15" x2="21" y2="15"></line>
+          <line x1="9" y1="3" x2="9" y2="21"></line>
+          <line x1="15" y1="3" x2="15" y2="21"></line>
+        </svg>
+      </button>
+    </div>
+
+    <div class="toolbar-group">
+      <button class="toolbar-btn" data-action="emoji" data-tooltip="Emoji 表情">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+          <line x1="9" y1="9" x2="9.01" y2="9"></line>
+          <line x1="15" y1="9" x2="15.01" y2="9"></line>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="main-container" id="mainContainer">
+    <div class="editor-panel">
+      <div class="panel-label">[ IN · 编辑 ]</div>
+      <textarea class="editor" id="editor" placeholder="落笔于此，支持 Markdown 语法…" spellcheck="false"></textarea>
+    </div>
+    <div class="split-handle" id="splitHandle" title="拖拽调整分栏 · 双击复位"></div>
+    <div class="preview-panel is-empty" id="previewPanel">
+      <div class="panel-label">[ OUT · 预览 ]</div>
+      <div class="preview-body">
+        <div class="preview" id="preview"></div>
+        <div class="empty-state" id="emptyState">
+          <div class="empty-seal">&gt;_</div>
+          <h2>$ cat 文档.md</h2>
+          <p>// 输入内容或载入示例</p>
+          <div class="empty-actions">
+            <button class="btn btn-primary" id="loadSampleBtn">载入示例</button>
+            <button class="btn btn-ghost" id="emptyImportBtn">导入本地文件</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="statusbar">
+    <div class="stats">
+      <span id="statChars">字数 0</span>
+      <span class="divider-dot">·</span>
+      <span id="statLines">行数 1</span>
+      <span class="divider-dot">·</span>
+      <span id="statTime">约 0 分钟</span>
+    </div>
+    <div class="save-stamp">
+      <span id="saveStamp">自动保存已就绪</span>
+      <span class="divider-dot">·</span>
+      <span>&copy; 2026 <a href="https://sylv.top/" target="_blank" rel="noopener noreferrer">Sylvy</a></span>
+      <span class="divider-dot">·</span>
+      <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">豫ICP备2026013756号-1</a>
+    </div>
+  </footer>
+
+  <div class="toast-wrap" id="toastWrap"></div>
+
+  <script src="marked.min.js"></script>
+  <script>
+    const editor = document.getElementById('editor');
+    const preview = document.getElementById('preview');
+    const previewPanel = document.getElementById('previewPanel');
+    const fileInput = document.getElementById('fileInput');
+    const importBtn = document.getElementById('importBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const dropdownMenu = document.getElementById('dropdownMenu');
+    const exportMd = document.getElementById('exportMd');
+    const exportHtml = document.getElementById('exportHtml');
+    const copyMd = document.getElementById('copyMd');
+    const themeBtn = document.getElementById('themeBtn');
+    const metaTheme = document.getElementById('metaTheme');
+    const toolbarBtns = document.querySelectorAll('.toolbar-btn');
+    const mainContainer = document.getElementById('mainContainer');
+    const splitHandle = document.getElementById('splitHandle');
+    const statChars = document.getElementById('statChars');
+    const statLines = document.getElementById('statLines');
+    const statTime = document.getElementById('statTime');
+    const saveStamp = document.getElementById('saveStamp');
+    const toastWrap = document.getElementById('toastWrap');
+    const loadSampleBtn = document.getElementById('loadSampleBtn');
+    const emptyImportBtn = document.getElementById('emptyImportBtn');
+
+    const historyStack = [];
+    let historyIndex = -1;
+    let isUndoRedo = false;
+
+    /* ---------- Toast ---------- */
+    function toast(msg) {
+      const el = document.createElement('div');
+      el.className = 'toast';
+      el.textContent = msg;
+      toastWrap.appendChild(el);
+      setTimeout(() => { el.classList.add('out'); }, 2000);
+      setTimeout(() => { el.remove(); }, 2350);
+    }
+
+    /* ---------- 主题：磷光体 P1 / P3 ---------- */
+    function applyTheme(phos) {
+      document.documentElement.dataset.phos = phos;
+      themeBtn.textContent = phos === 'p3' ? 'P3' : 'P1';
+      try { localStorage.setItem('term:phos', phos); } catch (e) {}
+    }
+    themeBtn.textContent = document.documentElement.dataset.phos === 'p3' ? 'P3' : 'P1';
+    themeBtn.addEventListener('click', () => {
+      applyTheme(document.documentElement.dataset.phos === 'p3' ? 'p1' : 'p3');
+    });
+
+    /* ---------- 历史栈 ---------- */
+    function saveHistory() {
+      if (isUndoRedo) return;
+      const content = editor.value;
+      if (historyStack[historyIndex] !== content) {
+        historyStack.splice(historyIndex + 1);
+        historyStack.push(content);
+        historyIndex++;
+        if (historyStack.length > 50) { historyStack.shift(); historyIndex--; }
+      }
+    }
+
+    function renderCustomDetails(html) {
+      return html.replace(/:::details\[([^\]]+)\]<br\s*\/?>/g, '<details><summary>$1</summary><div class="details-content">')
+        .replace(/:::details<br\s*\/?>/g, '<details><summary>点击展开</summary><div class="details-content"><p>')
+        .replace(/:::<br\s*\/?>/g, '</div></details><p>');
+    }
+
+    marked.setOptions({ breaks: true, gfm: true });
+
+    const ADMONITION_ICONS = {
+      note: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><line x1="12" y1="7.5" x2="12.01" y2="7.5"/></svg>',
+      tip: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10c.6.6 1 1.2 1 2h6c0-.8.4-1.4 1-2a6 6 0 0 0-4-10z"/></svg>',
+      important: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="7.5" x2="12" y2="13"/><line x1="12" y1="16.5" x2="12.01" y2="16.5"/></svg>',
+      warning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><line x1="12" y1="10" x2="12" y2="14"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+      caution: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8l5 5v8l-5 5H8l-5-5V8z"/><line x1="12" y1="8.5" x2="12" y2="13.5"/><line x1="12" y1="16.5" x2="12.01" y2="16.5"/></svg>'
+    };
+
+    function updatePreview() {
+      let markdown = editor.value;
+      let admonitionMap = [];
+
+      if (!markdown.trim()) {
+        preview.innerHTML = '';
+        previewPanel.classList.add('is-empty');
+        return;
+      }
+      previewPanel.classList.remove('is-empty');
+
+      markdown = markdown.replace(/>\s*\[!(\w+)\]([^\n]*(?:\n[ \t]*>[^\n]*)*)/gi, (match, type, content) => {
+        type = type.toLowerCase();
+        const cleanedContent = content.split('\n').map(line => line.replace(/^\s*>\s*/, '')).join('\n').trim();
+        admonitionMap.push({ type, content: cleanedContent });
+        return `<ADMNITN${admonitionMap.length - 1}>`;
+      });
+
+      let html = marked.parse(markdown);
+
+      for (let index = 0; index < admonitionMap.length; index++) {
+        const admonition = admonitionMap[index];
+        let contentHtml = admonition.content ? marked.parseInline(admonition.content) : '';
+        const titleMap = {
+          'note': 'NOTE',
+          'tip': 'TIP',
+          'important': 'IMPORTANT',
+          'warning': 'WARNING',
+          'caution': 'CAUTION'
+        };
+        const title = titleMap[admonition.type] || admonition.type;
+        const icon = ADMONITION_ICONS[admonition.type] || '';
+        const admonitionHtml = `<blockquote class="admonition admonition-${admonition.type}"><span class="admonition-title">${icon ? `<span class="admonition-icon">${icon}</span>` : ''}${title}</span>${contentHtml}</blockquote>`;
+
+        const placeholder = `<ADMNITN${index}>`;
+        html = html.replace(`<p>${placeholder}</p>`, admonitionHtml);
+        html = html.replace(placeholder, admonitionHtml);
+      }
+
+      html = renderCustomDetails(html);
+
+      preview.innerHTML = html;
+    }
+
+    /* ---------- 字数统计 ---------- */
+    function updateStats() {
+      const chars = editor.value.replace(/\s/g, '').length;
+      const lines = editor.value ? editor.value.split('\n').length : 1;
+      statChars.textContent = '字数 ' + chars.toLocaleString();
+      statLines.textContent = '行数 ' + lines;
+      statTime.textContent = chars > 0 ? '约 ' + Math.max(1, Math.ceil(chars / 400)) + ' 分钟' : '约 0 分钟';
+    }
+
+    /* ---------- 自动保存草稿 ---------- */
+    let saveTimer = null;
+    function scheduleSave() {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        try {
+          localStorage.setItem('moge:draft', editor.value);
+          const t = new Date();
+          const hh = String(t.getHours()).padStart(2, '0');
+          const mm = String(t.getMinutes()).padStart(2, '0');
+          saveStamp.textContent = '已自动保存 ' + hh + ':' + mm;
+        } catch (e) {}
+      }, 400);
+    }
+
+    editor.addEventListener('input', () => { saveHistory(); updatePreview(); updateStats(); scheduleSave(); });
+
+    /* ---------- 滚动同步：编辑 → 预览 ---------- */
+    let syncRaf = null;
+    editor.addEventListener('scroll', () => {
+      if (syncRaf) return;
+      syncRaf = requestAnimationFrame(() => {
+        syncRaf = null;
+        const eh = editor.scrollHeight - editor.clientHeight;
+        if (eh <= 0) return;
+        const ratio = editor.scrollTop / eh;
+        const ph = preview.scrollHeight - preview.clientHeight;
+        if (ph > 0) preview.scrollTop = ratio * ph;
+      });
+    });
+
+    /* ---------- 拖拽分栏 ---------- */
+    (function initSplit() {
+      let saved = null;
+      try { saved = parseFloat(localStorage.getItem('moge:split')); } catch (e) {}
+      if (saved >= 24 && saved <= 76) mainContainer.style.setProperty('--split-w', saved + '%');
+
+      let dragging = false;
+      splitHandle.addEventListener('pointerdown', (e) => {
+        dragging = true;
+        splitHandle.classList.add('dragging');
+        document.body.classList.add('dragging');
+        splitHandle.setPointerCapture(e.pointerId);
+      });
+      splitHandle.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        const rect = mainContainer.getBoundingClientRect();
+        const pct = Math.min(76, Math.max(24, ((e.clientX - rect.left) / rect.width) * 100));
+        mainContainer.style.setProperty('--split-w', pct.toFixed(1) + '%');
+      });
+      const endDrag = () => {
+        if (!dragging) return;
+        dragging = false;
+        splitHandle.classList.remove('dragging');
+        document.body.classList.remove('dragging');
+        const pct = parseFloat(mainContainer.style.getPropertyValue('--split-w'));
+        if (pct) { try { localStorage.setItem('moge:split', pct); } catch (e) {} }
+      };
+      splitHandle.addEventListener('pointerup', endDrag);
+      splitHandle.addEventListener('pointercancel', endDrag);
+      splitHandle.addEventListener('dblclick', () => {
+        mainContainer.style.setProperty('--split-w', '50%');
+        try { localStorage.setItem('moge:split', '50'); } catch (e) {}
+      });
+    })();
+
+    const emojiList = ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😜', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤯', '😳', '🥵', '🥶', '😴', '😪', '😵', '😰', '🥱', '😢', '😭', '😤', '😠', '😡', '🤬', '😈', '👿', '💀', '☠️', '💩', '🤡', '👹', '👺', '👻', '👽', '👾', '🤖', '👋', '🤚', '🖐️', '✋', '👌', '✌️', '🤞', '🤟', '🤘', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '👏', '👏', '👐', '🤝', '🙏', '💪', '🦾', '👂', '🧠', '👀', '👶', '🧒', '👦', '👧', '🧑', '👨', '👩', '🐶', '🐱', '🐭', '🐰', '🦊', '🐻', '🐼', '🐨', '🦁', '🐮', '🐷', '🐸', '🐵', '🐒', '🦋', '🐞', '🐜', '🐙', '🦑', '🦀', '🐠', '🐟', '🐬', '🦈', '🐊', '🐅', '🐆', '🦓', '🦍', '🐘', '🦏', '🐪', '🐫', '🐃', '🐂', '🐄', '🐎', '🐖', '🐑', '🐐', '🦌', '🐕', '🐩', '🐈', '🕊️', '🐇', '🦝', '🦡', '🌸', '🌹', '🌻', '🌺', '🌱', '🌲', '🌳', '🍀', '🍁', '🍂', '🍃', '🍇', '🍈', '🍉', '🍊', '🍋', '🍌', '🍍', '🍏', '🍎', '🍐', '🍑', '🍒', '🍓', '🍅', '🥔', '🥕', '🌽', '🌶️', '🥒', '🥬', '🍄', '🥜', '🍞', '🥐', '🥖', '🥚', '🍳', '🥞', '🥓', '🥩', '🍗', '🍖', '🌭', '🍔', '🍟', '🍕', '🌮', '🌯', '🍝', '🍜', '🍲', '🍛', '🍣', '🍱', '🍙', '🍚', '🍘', '🍥', '🍤', '🍡', '🍧', '🍨', '🍦', '🥧', '🧁', '🍰', '🎂', '🍮', '🍭', '🍬', '🍫', '🍿', '🍩', '🍪', '☕', '🍵', '🧃', '🍶', '🍺', '🍻', '🥂', '🍷', '🥃', '🍸', '🍹', '🍾', '🧊', '✅', '❌', '⚠️', '🔔', '💯', '❗', '❓'];
+
+    function insertMarkdown(before, after = '') {
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      const selected = editor.value.substring(start, end);
+      const newText = before + selected + after;
+      editor.setRangeText(newText, start, end, 'end');
+
+      if (selected) {
+        const newPos = end + after.length;
+        editor.setSelectionRange(newPos, newPos);
+      } else {
+        const newPos = start + before.length;
+        editor.setSelectionRange(newPos, newPos);
+      }
+
+      editor.focus();
+      saveHistory();
+      updatePreview();
+      updateStats();
+      scheduleSave();
+    }
+
+    const actions = {
+      undo: () => {
+        if (historyIndex > 0) {
+          isUndoRedo = true;
+          historyIndex--;
+          editor.value = historyStack[historyIndex];
+          editor.focus();
+          updatePreview();
+          updateStats();
+          setTimeout(() => isUndoRedo = false, 10);
+        }
+      },
+      redo: () => {
+        if (historyIndex < historyStack.length - 1) {
+          isUndoRedo = true;
+          historyIndex++;
+          editor.value = historyStack[historyIndex];
+          editor.focus();
+          updatePreview();
+          updateStats();
+          setTimeout(() => isUndoRedo = false, 10);
+        }
+      },
+      bold: () => insertMarkdown('**', '**'),
+      italic: () => insertMarkdown('*', '*'),
+      strike: () => insertMarkdown('~~', '~~'),
+      h1: () => insertMarkdown('# ', ''),
+      h2: () => insertMarkdown('## ', ''),
+      h3: () => insertMarkdown('### ', ''),
+      link: () => insertMarkdown('[', '](url)'),
+      image: () => insertMarkdown('![', '](url)'),
+      code: () => insertMarkdown('`', '`'),
+      'codeblock-fence': () => insertMarkdown('```\n', '\n```'),
+      quote: () => insertMarkdown('> '),
+      ul: () => insertMarkdown('- '),
+      ol: () => insertMarkdown('1. '),
+      hr: () => insertMarkdown('\n---\n'),
+      table: () => insertMarkdown('| 列1 | 列2 | 列3 |\n|------|------|------|\n|    |    |    |'),
+      details: () => insertMarkdown('\n:::details[标题]\n', '\n'),
+      emoji: (e) => {
+        const start = editor.selectionStart;
+        const btn = e.target.closest('.toolbar-btn');
+        const rect = btn.getBoundingClientRect();
+
+        const popup = document.createElement('div');
+        popup.className = 'emoji-popup';
+        popup.style.top = (rect.bottom + 8) + 'px';
+        popup.style.left = rect.left + 'px';
+
+        const searchInput = document.createElement('input');
+        searchInput.placeholder = '搜索 emoji...';
+        popup.appendChild(searchInput);
+
+        const scrollDiv = document.createElement('div');
+        scrollDiv.style.cssText = 'max-height:200px;overflow-y:auto;width:100%;';
+
+        const displayEmojis = () => {
+          scrollDiv.innerHTML = '';
+          const filter = searchInput.value;
+          const filtered = filter ? emojiList.slice(0, 50) : emojiList;
+
+          filtered.forEach(emoji => {
+            const btn = document.createElement('button');
+            btn.className = 'emoji-btn';
+            btn.textContent = emoji;
+            btn.addEventListener('click', () => {
+              editor.setRangeText(emoji, start, start, 'end');
+              editor.focus();
+              saveHistory();
+              updatePreview();
+              updateStats();
+              scheduleSave();
+              popup.remove();
+            });
+            scrollDiv.appendChild(btn);
+          });
+        };
+
+        displayEmojis();
+        searchInput.addEventListener('input', displayEmojis);
+
+        popup.appendChild(scrollDiv);
+        document.body.appendChild(popup);
+
+        const closePopup = (ev) => {
+          if (!popup.contains(ev.target) && !ev.target.closest('[data-action="emoji"]')) {
+            popup.remove();
+            document.removeEventListener('click', closePopup);
+          }
+        };
+        setTimeout(() => document.addEventListener('click', closePopup), 100);
+      }
+    };
+
+    const admonitionBtn = document.getElementById('admonitionBtn');
+    let admonitionMenu = null;
+
+    admonitionBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+
+      if (admonitionMenu) {
+        admonitionMenu.remove();
+        admonitionMenu = null;
+        return;
+      }
+
+      const rect = admonitionBtn.getBoundingClientRect();
+
+      admonitionMenu = document.createElement('div');
+      admonitionMenu.style.cssText = 'position:fixed;top:' + (rect.bottom + 8) + 'px;left:' + rect.left + 'px;background:var(--bg-surface);border:1px solid var(--border-strong);border-radius:var(--radius-md);z-index:99999;min-width:130px;overflow:hidden;padding:4px;box-shadow:var(--shadow-popover);animation:fadeIn 0.15s ease-out;';
+
+      const types = ['note', 'tip', 'important', 'warning', 'caution'];
+      types.forEach(type => {
+        const btn = document.createElement('button');
+        btn.style.cssText = 'display:block;width:100%;padding:10px 14px;border:none;background:transparent;color:var(--text-primary);cursor:pointer;text-align:left;white-space:nowrap;font-size:13px;font-weight:500;font-family:inherit;border-radius:var(--radius-sm);transition:background-color 0.18s ease-out;';
+        btn.textContent = type.toUpperCase();
+        btn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const upperType = type.charAt(0).toUpperCase() + type.slice(1);
+          insertMarkdown('\n> [!' + upperType + ']\n> ', '\n\n');
+          admonitionMenu.remove();
+          admonitionMenu = null;
+        });
+        btn.addEventListener('mouseenter', () => { btn.style.background = 'var(--bg-hover)'; });
+        btn.addEventListener('mouseleave', () => { btn.style.background = 'transparent'; });
+        admonitionMenu.appendChild(btn);
+      });
+
+      document.body.appendChild(admonitionMenu);
+
+      const closeMenu = (ev) => {
+        if (admonitionMenu && !admonitionMenu.contains(ev.target) && ev.target !== admonitionBtn) {
+          admonitionMenu.remove();
+          admonitionMenu = null;
+          document.removeEventListener('click', closeMenu);
+        }
+      };
+      setTimeout(() => document.addEventListener('click', closeMenu), 100);
+    });
+
+    toolbarBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const action = btn.dataset.action;
+        if (actions[action]) { actions[action](e); }
+      });
+    });
+
+    /* ---------- 导入 / 导出 ---------- */
+    function importFile() { fileInput.click(); }
+    importBtn.addEventListener('click', importFile);
+    emptyImportBtn.addEventListener('click', importFile);
+
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          editor.value = event.target.result;
+          saveHistory();
+          updatePreview();
+          updateStats();
+          scheduleSave();
+          toast('已导入「' + file.name + '」');
+        };
+        reader.readAsText(file);
+      }
+      fileInput.value = '';
+    });
+
+    exportBtn.addEventListener('click', () => { dropdownMenu.classList.toggle('show'); });
+
+    document.addEventListener('click', (e) => {
+      if (!exportBtn.contains(e.target) && !dropdownMenu.contains(e.target)) {
+        dropdownMenu.classList.remove('show');
+      }
+    });
+
+    function downloadFile(filename, content, type) {
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      dropdownMenu.classList.remove('show');
+    }
+
+    exportMd.addEventListener('click', () => {
+      downloadFile('文档.md', editor.value, 'text/markdown');
+      toast('已导出 文档.md');
+    });
+
+    copyMd.addEventListener('click', () => {
+      const text = editor.value;
+      if (!text) { toast('暂无内容可复制'); return; }
+      const done = () => { toast('已复制 Markdown'); dropdownMenu.classList.remove('show'); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+      } else {
+        fallbackCopy(text, done);
+      }
+    });
+    function fallbackCopy(text, done) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;opacity:0;';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); done(); } catch (e) { toast('复制失败'); }
+      ta.remove();
+    }
+
+    /* 导出 HTML：随当前 磷光体 P1/P3 生成 CRT 终端风成品 */
+    function buildExportHtml(bodyHtml) {
+      const p3 = document.documentElement.dataset.phos === 'p3';
+      const P = p3 ? {
+        bg: '#0C0A06', text: '#F2D9A4', text2: '#B3905A', border: 'rgba(255,184,77,0.16)',
+        surface: '#12100A', accent: '#FFB84D', glow: 'rgba(255,184,77,0.18)',
+        note: '#FFB84D', noteB: 'rgba(255,184,77,0.10)',
+        tip: '#FFD98F', tipB: 'rgba(255,217,143,0.10)',
+        imp: '#FF9E64', impB: 'rgba(255,158,100,0.10)',
+        warn: '#F5D76B', warnB: 'rgba(245,215,107,0.10)',
+        cau: '#FF6B6B', cauB: 'rgba(255,107,107,0.10)'
+      } : {
+        bg: '#0A0C08', text: '#A9EFB9', text2: '#5F9E70', border: 'rgba(70,224,122,0.16)',
+        surface: '#0E120C', accent: '#46E07A', glow: 'rgba(70,224,122,0.18)',
+        note: '#46E07A', noteB: 'rgba(70,224,122,0.10)',
+        tip: '#8CF5AD', tipB: 'rgba(140,245,173,0.10)',
+        imp: '#FF7EB6', impB: 'rgba(255,126,182,0.10)',
+        warn: '#F5D76B', warnB: 'rgba(245,215,107,0.10)',
+        cau: '#FF6B6B', cauB: 'rgba(255,107,107,0.10)'
+      };
+      return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文档</title>
+  <style>
+    body { font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, Menlo, Monaco, 'Courier New', monospace; max-width: 800px; margin: 0 auto; padding: 48px 24px; line-height: 1.9; font-size: 16px; color: ${P.text}; background: ${P.bg}; }
+    body::after { content: ''; position: fixed; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,0.22) 0 1px, transparent 1px 3px); pointer-events: none; z-index: 9998; }
+    h1 { font-size: 24px; font-weight: 700; margin: 30px 0 16px; padding-bottom: 12px; border-bottom: 1px solid ${P.border}; text-shadow: 0 0 8px ${P.glow}; }
+    h2 { font-size: 20px; font-weight: 700; margin: 26px 0 13px; padding-bottom: 10px; border-bottom: 1px solid ${P.border}; text-shadow: 0 0 8px ${P.glow}; }
+    h3 { font-size: 17px; font-weight: 700; margin: 22px 0 11px; text-shadow: 0 0 8px ${P.glow}; }
+    h4, h5, h6 { font-size: 15px; font-weight: 600; margin: 18px 0 9px; color: ${P.text2}; }
+    p, li { text-shadow: 0 0 6px ${P.glow}; }
+    a { color: ${P.accent}; text-decoration: underline; text-underline-offset: 3px; }
+    code { font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, Menlo, Monaco, 'Courier New', monospace; background: ${P.surface}; color: ${P.accent}; padding: 2px 6px; border-radius: 2px; font-size: 0.85em; }
+    pre { background: ${P.surface}; border: 1px solid ${P.border}; padding: 15px 17px; border-radius: 3px; overflow-x: auto; }
+    pre code { background: transparent; color: ${P.text}; padding: 0; border-radius: 0; font-size: 13.5px; line-height: 1.7; text-shadow: none; }
+    blockquote { border-left: 3px solid ${P.border}; padding: 2px 0 2px 15px; margin: 15px 0; color: ${P.text2}; }
+    blockquote.admonition { padding: 12px 16px; border-radius: 3px; color: ${P.text}; }
+    blockquote.admonition-note { border-left-color: ${P.note}; background: ${P.noteB}; }
+    blockquote.admonition-tip { border-left-color: ${P.tip}; background: ${P.tipB}; }
+    blockquote.admonition-important { border-left-color: ${P.imp}; background: ${P.impB}; }
+    blockquote.admonition-warning { border-left-color: ${P.warn}; background: ${P.warnB}; }
+    blockquote.admonition-caution { border-left-color: ${P.cau}; background: ${P.cauB}; }
+    .admonition-title { font-weight: 600; margin-bottom: 6px; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+    .admonition-title::before { content: '[ '; opacity: 0.65; }
+    .admonition-title::after { content: ' ]'; opacity: 0.65; }
+    blockquote.admonition-note .admonition-title { color: ${P.note}; }
+    blockquote.admonition-tip .admonition-title { color: ${P.tip}; }
+    blockquote.admonition-important .admonition-title { color: ${P.imp}; }
+    blockquote.admonition-warning .admonition-title { color: ${P.warn}; }
+    blockquote.admonition-caution .admonition-title { color: ${P.cau}; }
+    .admonition-icon { display: inline-flex; line-height: 0; }
+    .admonition-icon svg { width: 14px; height: 14px; }
+    details { border: 1px solid ${P.border}; border-radius: 3px; margin: 15px 0; overflow: hidden; }
+    summary { padding: 11px 15px; cursor: pointer; font-weight: 500; list-style: none; color: ${P.accent}; }
+    summary::-webkit-details-marker { display: none; }
+    .details-content { padding: 13px 15px; }
+    ul li::marker, ol li::marker { color: ${P.accent}; }
+    table { border-collapse: collapse; width: 100%; margin: 15px 0; border-radius: 3px; overflow: hidden; border: 1px solid ${P.border}; }
+    th, td { border: 1px solid ${P.border}; padding: 8px 13px; text-align: left; }
+    th { background: ${P.surface}; font-weight: 600; }
+    img { max-width: 100%; border-radius: 3px; border: 1px solid ${P.border}; }
+    hr { border: none; border-top: 1px solid ${P.border}; margin: 30px 0; }
+  </style>
+</head>
+<body>
+${bodyHtml}
+</body>
+</html>`;
+    }
+
+    exportHtml.addEventListener('click', () => {
+      if (!editor.value.trim()) { toast('暂无内容可导出'); dropdownMenu.classList.remove('show'); return; }
+      downloadFile('文档.html', buildExportHtml(preview.innerHTML), 'text/html');
+      toast('已导出 文档.html');
+    });
+
+    /* ---------- 快捷键 ---------- */
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        downloadFile('文档.md', editor.value, 'text/markdown');
+        toast('已导出 文档.md');
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); actions.undo(); }
+      if (((e.ctrlKey || e.metaKey) && e.key === 'y') || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z')) {
+        e.preventDefault();
+        actions.redo();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b') { e.preventDefault(); actions.bold(); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'i') { e.preventDefault(); actions.italic(); }
+    });
+
+    document.querySelectorAll('.toolbar-btn').forEach(btn => {
+      btn.addEventListener('mouseenter', (e) => {
+        const rect = btn.getBoundingClientRect();
+        btn.style.setProperty('--tooltip-top', rect.bottom + 'px');
+        btn.style.setProperty('--tooltip-left', (rect.left + rect.width / 2) + 'px');
+      });
+    });
+
+    if ('ontouchstart' in window) {
+      document.querySelectorAll('.toolbar-btn, .btn, .dropdown-menu button, .emoji-btn').forEach(el => {
+        el.addEventListener('touchstart', () => { el.style.opacity = '0.7'; }, { passive: true });
+        el.addEventListener('touchend', () => { el.style.opacity = '1'; }, { passive: true });
+      });
+    }
+
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', (e) => {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 300) {
+        e.preventDefault();
+      }
+      lastTouchEnd = now;
+    }, false);
+
+    /* ---------- 示例文档 & 启动恢复 ---------- */
+    const SAMPLE_MD = `# 墨格 · 示例文档
+
+欢迎来到**墨格**，一枚安静的 Markdown 案头。这里是一份示例，可以随意涂改。
+
+## 行内样式
+
+正文里可以有 **加粗**、*斜体*、~~删除线~~、\`行内代码\`，也可以放 [链接](https://md.ylv.top/)。
+
+## 提示便签
+
+> [!NOTE]
+> 像一张便签贴在纸上，五种颜色各有含义。
+
+> [!TIP]
+> 拖动中间的分栏线，可以调整「稿」与「成」的比例。
+
+> [!WARNING]
+> 所有内容都自动保存在浏览器本地，换设备不会跟随。
+
+## 表格
+
+| 功能 | 语法 | 示例 |
+| ---- | ---- | ---- |
+| 粗体 | \`**文本**\` | **落笔生花** |
+| 斜体 | \`*文本*\` | *行云流水* |
+| 删除 | \`~~文本~~\` | ~~涂掉一段~~ |
+
+## 代码
+
+\`\`\`js
+// 代码块安放在纸面上
+const mood = '心静手顺';
+console.log(mood);
+\`\`\`
+
+## 折叠一段话
+
+:::details[点开看看，纸上还藏了什么]
+白纸 Black，墨字 White，朱砂 Red。
+
+文人案头，不过如此。
+:::
+
+## 列表与分隔
+
+- 无序列表
+1. 有序列表
+
+---
+
+祝写作愉快 ✍️`;
+
+    loadSampleBtn.addEventListener('click', () => {
+      editor.value = SAMPLE_MD;
+      saveHistory();
+      updatePreview();
+      updateStats();
+      scheduleSave();
+      editor.focus();
+    });
+
+    (function initDraft() {
+      let draft = null;
+      try { draft = localStorage.getItem('moge:draft'); } catch (e) {}
+      if (draft && draft.trim()) {
+        editor.value = draft;
+        saveHistory();
+        updatePreview();
+        updateStats();
+        saveStamp.textContent = '已恢复上次草稿';
+        toast('已恢复上次草稿');
+      } else {
+        updateStats();
+      }
+    })();
+
+    saveHistory();
+  </script>
+</body>
+</html>
