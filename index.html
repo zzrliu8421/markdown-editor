@@ -7,7 +7,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" id="metaTheme" content="#F6F3EC">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='1' y='1' width='30' height='30' rx='6' fill='%23B8432C'/%3E%3Ctext x='16' y='23' font-size='19' font-family='Georgia,Songti SC,SimSun,serif' font-weight='700' fill='%23F6F3EC' text-anchor='middle'%3E%E5%A2%A8%3C/text%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='2' y='2' width='28' height='28' rx='5' fill='%23F6F3EC' stroke='%23B8432C' stroke-width='2.5'/%3E%3Ctext x='16' y='23' font-size='18' font-family='Georgia,Songti SC,SimSun,serif' font-weight='700' fill='%23B8432C' text-anchor='middle'%3E%E5%A2%A8%3C/text%3E%3C/svg%3E">
   <title>墨格 · Markdown 编辑器</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -43,6 +43,7 @@
       --accent: #B8432C;
       --accent-hover: #96351F;
       --accent-subtle: rgba(184, 67, 44, 0.08);
+      --accent-tint: rgba(184, 67, 44, 0.16);
       --ring: rgba(184, 67, 44, 0.30);
       --shadow-popover: 0 12px 32px rgba(60, 45, 30, 0.16), 0 2px 8px rgba(60, 45, 30, 0.08);
       --grid-line: rgba(150, 53, 31, 0.05);
@@ -62,6 +63,7 @@
       --accent: #E06B4F;
       --accent-hover: #EA8268;
       --accent-subtle: rgba(224, 107, 79, 0.10);
+      --accent-tint: rgba(224, 107, 79, 0.20);
       --ring: rgba(224, 107, 79, 0.35);
       --shadow-popover: 0 12px 32px rgba(0, 0, 0, 0.50), 0 2px 8px rgba(0, 0, 0, 0.35);
       --grid-line: rgba(237, 232, 221, 0.035);
@@ -118,16 +120,17 @@
       height: 32px;
       flex-shrink: 0;
       border-radius: var(--radius-sm);
-      background: var(--accent);
-      color: #F6F3EC;
+      background: var(--accent-subtle);
+      color: var(--accent);
+      border: 2px solid var(--accent);
       font-family: var(--font-serif);
-      font-size: 18px;
+      font-size: 17px;
       font-weight: 700;
       display: flex;
       align-items: center;
       justify-content: center;
       transform: rotate(-4deg);
-      box-shadow: inset 0 0 0 1.5px rgba(246, 243, 236, 0.35);
+      box-shadow: none;
       cursor: default;
       user-select: none;
       transition: transform var(--speed) ease-out;
@@ -175,8 +178,16 @@
       white-space: nowrap;
     }
     .btn:active { transform: translateY(1px); }
-    .btn-primary { background: var(--accent); color: #F6F3EC; }
-    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary {
+      background: var(--accent-subtle);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+    .btn-primary:hover {
+      background: var(--accent-tint);
+      border-color: var(--accent-hover);
+      color: var(--accent-hover);
+    }
     .btn-ghost {
       background: transparent;
       color: var(--text-primary);
@@ -422,16 +433,17 @@
       width: 56px;
       height: 56px;
       border-radius: var(--radius-md);
-      background: var(--accent);
-      color: #F6F3EC;
+      background: var(--accent-subtle);
+      color: var(--accent);
+      border: 3px solid var(--accent);
       font-family: var(--font-serif);
-      font-size: 30px;
+      font-size: 28px;
       font-weight: 700;
       display: flex;
       align-items: center;
       justify-content: center;
       transform: rotate(-4deg);
-      box-shadow: inset 0 0 0 2px rgba(246, 243, 236, 0.35);
+      box-shadow: inset 0 0 0 2px var(--bg-surface), inset 0 0 0 3px var(--accent);
       margin-bottom: 14px;
     }
     .empty-state h2 {
@@ -999,12 +1011,12 @@
 
   <div class="main-container" id="mainContainer">
     <div class="editor-panel">
-      <div class="panel-label"><span class="tag">稿</span><span>编辑</span></div>
+      <div class="panel-label"><span class="tag">稿</span><span class="lbl">编辑</span></div>
       <textarea class="editor" id="editor" placeholder="落笔于此，支持 Markdown 语法…" spellcheck="false"></textarea>
     </div>
     <div class="split-handle" id="splitHandle" title="拖拽调整分栏 · 双击复位"></div>
     <div class="preview-panel is-empty" id="previewPanel">
-      <div class="panel-label"><span class="tag">成</span><span>预览</span></div>
+      <div class="panel-label"><span class="tag">成</span><span class="lbl">预览</span></div>
       <div class="preview-body">
         <div class="preview" id="preview"></div>
         <div class="empty-state" id="emptyState">
