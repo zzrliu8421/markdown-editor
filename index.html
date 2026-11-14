@@ -7,7 +7,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" id="metaTheme" content="#F6F3EC">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='2' y='2' width='28' height='28' rx='5' fill='%23F6F3EC' stroke='%23B8432C' stroke-width='2.5'/%3E%3Ctext x='16' y='23' font-size='18' font-family='Georgia,Songti SC,SimSun,serif' font-weight='700' fill='%23B8432C' text-anchor='middle'%3E%E5%A2%A8%3C/text%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23F6F3EC'/%3E%3Crect x='3.8' y='6.4' width='24.4' height='19.2' rx='2' fill='none' stroke='%232C2A25' stroke-width='2.2' opacity='.6'/%3E%3Cline x1='16' y1='6.4' x2='16' y2='25.6' stroke='%23B8432C' stroke-width='2.8'/%3E%3Ctext x='9.8' y='20.8' font-size='13' font-family='Georgia,Songti SC,SimSun,serif' font-weight='700' fill='%232C2A25' text-anchor='middle'%3E%23%3C/text%3E%3Cline x1='19.4' y1='12.2' x2='25' y2='12.2' stroke='%232C2A25' stroke-width='2.4' stroke-linecap='round' opacity='.8'/%3E%3Cline x1='19.4' y1='17' x2='23.4' y2='17' stroke='%232C2A25' stroke-width='1.8' stroke-linecap='round' opacity='.5'/%3E%3Cline x1='19.4' y1='21.4' x2='24.2' y2='21.4' stroke='%232C2A25' stroke-width='1.8' stroke-linecap='round' opacity='.5'/%3E%3C/svg%3E">
   <title>墨格 · Markdown 编辑器</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -114,29 +114,20 @@
       gap: 10px;
       min-width: 0;
     }
-    /* 印章 Logo：朱砂方印，悬停时"落印" */
-    .seal {
+    /* 品牌标记：左稿右成，中缝朱线 */
+    .brand-mark {
       width: 32px;
       height: 32px;
       flex-shrink: 0;
-      border-radius: var(--radius-sm);
-      background: var(--accent-subtle);
-      color: var(--accent);
-      border: 2px solid var(--accent);
-      font-family: var(--font-serif);
-      font-size: 17px;
-      font-weight: 700;
+      color: var(--text-primary);
       display: flex;
       align-items: center;
       justify-content: center;
-      transform: rotate(-4deg);
-      box-shadow: none;
+      align-self: center;
       cursor: default;
       user-select: none;
-      transition: transform var(--speed) ease-out;
-      align-self: center;
     }
-    .seal:hover { transform: rotate(0deg) scale(1.06); }
+    .brand-mark svg { width: 32px; height: 32px; display: block; }
     .brand-name {
       font-family: var(--font-serif);
       font-size: 18px;
@@ -429,23 +420,13 @@
       gap: 8px;
     }
     .preview-panel.is-empty .empty-state { display: flex; }
-    .empty-seal {
+    .empty-mark {
       width: 56px;
       height: 56px;
-      border-radius: var(--radius-md);
-      background: var(--accent-subtle);
-      color: var(--accent);
-      border: 3px solid var(--accent);
-      font-family: var(--font-serif);
-      font-size: 28px;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transform: rotate(-4deg);
-      box-shadow: inset 0 0 0 2px var(--bg-surface), inset 0 0 0 3px var(--accent);
+      color: var(--text-primary);
       margin-bottom: 14px;
     }
+    .empty-mark svg { width: 56px; height: 56px; display: block; }
     .empty-state h2 {
       font-family: var(--font-serif);
       font-size: 22px;
@@ -762,7 +743,8 @@
       header { height: 52px; padding: 0 14px; }
       .brand-name { font-size: 16px; }
       .brand-sub { display: none; }
-      .seal { width: 30px; height: 30px; font-size: 17px; }
+      .brand-mark { width: 30px; height: 30px; }
+      .brand-mark svg { width: 30px; height: 30px; }
       .header-actions { gap: 6px; }
       .btn { padding: 7px 12px; font-size: 12px; }
 
@@ -848,9 +830,21 @@
   </script>
 </head>
 <body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="brandQ" viewBox="0 0 32 32">
+        <rect x="3.4" y="5.8" width="25.2" height="20.4" rx="1.6" style="fill:none;stroke:currentColor;stroke-width:1.9;opacity:.62"/>
+        <line x1="16" y1="5.8" x2="16" y2="26.2" style="stroke:var(--accent);stroke-width:2.2"/>
+        <text x="9.8" y="20.6" text-anchor="middle" style="fill:currentColor;font-family:Georgia,'Times New Roman',serif;font-size:13px;font-weight:700">#</text>
+        <line x1="19.2" y1="11.6" x2="25.4" y2="11.6" style="stroke:currentColor;stroke-width:2.4;stroke-linecap:round;opacity:.8"/>
+        <line x1="19.2" y1="16.4" x2="23.6" y2="16.4" style="stroke:currentColor;stroke-width:1.5;stroke-linecap:round;opacity:.5"/>
+        <line x1="19.2" y1="21" x2="24.6" y2="21" style="stroke:currentColor;stroke-width:1.5;stroke-linecap:round;opacity:.5"/>
+      </symbol>
+    </defs>
+  </svg>
   <header>
     <div class="brand">
-      <div class="seal" title="墨格">墨</div>
+      <div class="brand-mark" title="墨格"><svg viewBox="0 0 32 32" aria-hidden="true"><use href="#brandQ"/></svg></div>
       <span class="brand-name">墨格</span>
       <span class="brand-sub">Markdown 编辑器</span>
     </div>
@@ -1020,7 +1014,7 @@
       <div class="preview-body">
         <div class="preview" id="preview"></div>
         <div class="empty-state" id="emptyState">
-          <div class="empty-seal">墨</div>
+          <div class="empty-mark"><svg viewBox="0 0 32 32" aria-hidden="true"><use href="#brandQ"/></svg></div>
           <h2>白纸尚在，静候落笔</h2>
           <p>左侧撰文，此处成稿。</p>
           <div class="empty-actions">
